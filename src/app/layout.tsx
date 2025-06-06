@@ -1,26 +1,22 @@
-import type { Metadata } from "next";
+import { PropsWithChildren } from 'react';
+import '../styles/globals.css';
+import { WagmiProvider } from '~/components/providers/WagmiProvider';
 
-import { getSession } from "~/auth"
-import "~/app/globals.css";
-import { Providers } from "~/app/providers";
-import { APP_NAME, APP_DESCRIPTION } from "~/lib/constants";
-
-export const metadata: Metadata = {
-  title: APP_NAME,
-  description: APP_DESCRIPTION,
+export const metadata = {
+  title: 'Indochinese Style Betting',
+  description: 'A Farcaster mini app for betting on Vietnam Northern Lottery results',
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
-export default async function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {  
-  const session = await getSession()
-
+export default function RootLayout({ children }: PropsWithChildren) {
   return (
     <html lang="en">
       <body>
-        <Providers session={session}>{children}</Providers>
+        <WagmiProvider>
+          {children}
+        </WagmiProvider>
       </body>
     </html>
   );

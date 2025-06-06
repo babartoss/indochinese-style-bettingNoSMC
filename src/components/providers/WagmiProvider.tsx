@@ -1,87 +1,57 @@
-import { createConfig, http, WagmiProvider } from "wagmi";
-import { base, degen, mainnet, optimism, unichain } from "wagmi/chains";
+"use client";
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { base } from "@wagmi/chains";
 import { farcasterFrame } from "@farcaster/frame-wagmi-connector";
-import { coinbaseWallet, metaMask } from 'wagmi/connectors';
 import { APP_NAME, APP_ICON_URL, APP_URL } from "~/lib/constants";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useConnect, useAccount } from "wagmi";
 import React from "react";
-
-// Custom hook for Coinbase Wallet detection and auto-connection
-function useCoinbaseWalletAutoConnect() {
-  const [isCoinbaseWallet, setIsCoinbaseWallet] = useState(false);
-  const { connect, connectors } = useConnect();
-  const { isConnected } = useAccount();
-
-  useEffect(() => {
-    // Check if we're running in Coinbase Wallet
-    const checkCoinbaseWallet = () => {
-      const isInCoinbaseWallet = window.ethereum?.isCoinbaseWallet || 
-        window.ethereum?.isCoinbaseWalletExtension ||
-        window.ethereum?.isCoinbaseWalletBrowser;
-      setIsCoinbaseWallet(!!isInCoinbaseWallet);
-    };
-    
-    checkCoinbaseWallet();
-    window.addEventListener('ethereum#initialized', checkCoinbaseWallet);
-    
-    return () => {
-      window.removeEventListener('ethereum#initialized', checkCoinbaseWallet);
-    };
-  }, []);
-
-  useEffect(() => {
-    // Auto-connect if in Coinbase Wallet and not already connected
-    if (isCoinbaseWallet && !isConnected) {
-      connect({ connector: connectors[1] }); // Coinbase Wallet connector
-    }
-  }, [isCoinbaseWallet, isConnected, connect, connectors]);
-
-  return isCoinbaseWallet;
-}
-
-export const config = createConfig({
-  chains: [base, optimism, mainnet, degen, unichain],
-  transports: {
-    [base.id]: http(),
-    [optimism.id]: http(),
-    [mainnet.id]: http(),
-    [degen.id]: http(),
-    [unichain.id]: http(),
-  },
-  connectors: [
-    farcasterFrame(),
-    coinbaseWallet({
-      appName: APP_NAME,
-      appLogoUrl: APP_ICON_URL,
-      preference: 'all',
-    }),
-    metaMask({
-      dappMetadata: {
-        name: APP_NAME,
-        url: APP_URL,
-      },
-    }),
-  ],
-});
+import { createConfig, http, WagmiProvider as WagmiProviderComponent } from "wagmi";
 
 const queryClient = new QueryClient();
 
-// Wrapper component that provides Coinbase Wallet auto-connection
-function CoinbaseWalletAutoConnect({ children }: { children: React.ReactNode }) {
-  useCoinbaseWalletAutoConnect();
-  return <>{children}</>;
+const config = createConfig({
+  chains: [base],
+  connectors: [
+    farcasterFrame({
+      appName: APP_NAME,
+      appIconUrl: APP_ICON_URL,
+      appUrl: APP_URL,
+    }),
+  ],
+  transports: {
+    [base.id]: http(),
+  },
+});
+
+function AutoConnect() {
+  const { connect, connectors, error } = useConnect();
+  const { isConnected, address } = useAccount();
+
+  useEffect(() => {
+    if (!isConnected && connectors.length > 0) {
+      try {
+        connect({ connector: connectors[0], chainId: base.id });
+      } catch (error) {
+        console.error("Lỗi kết nối ví:", error);
+      }
+    } else if (!isConnected && connectors.length === 0) {
+      console.error("Không có connector nào khả dụng");
+    }
+    console.log("Trạng thái kết nối ví:", { isConnected, address, connectors, error });
+  }, [connect, connectors, isConnected, error]);
+
+  return null;
 }
 
-export default function Provider({ children }: { children: React.ReactNode }) {
+export const WagmiProvider = ({ children }: { children: React.ReactNode }) => {
   return (
-    <WagmiProvider config={config}>
+    <WagmiProviderComponent config={config}>
       <QueryClientProvider client={queryClient}>
-        <CoinbaseWalletAutoConnect>
-          {children}
-        </CoinbaseWalletAutoConnect>
+        <AutoConnect />
+        {children}
       </QueryClientProvider>
-    </WagmiProvider>
+    </WagmiProviderComponent>
   );
-}
+};
