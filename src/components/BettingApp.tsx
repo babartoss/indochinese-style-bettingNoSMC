@@ -1,12 +1,27 @@
-'use client';
+"use client";
 
 import React, { useState } from 'react';
-import { useAccount, useConnect, useDisconnect, useContractWrite } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useConfig } from 'wagmi';
+import { writeContract } from 'wagmi/actions';
 import { sdk } from '@farcaster/frame-sdk';
 import { parseUnits } from 'viem';
+import Link from 'next/link';
 
 const usdcAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'; // USDC on Base
 const recipientAddress = '0xb37bF0176558B9e76507b79d38D4696DD1805bee'; // Recipient address
+
+const transferAbi = [
+  {
+    name: 'transfer',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'value', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+] as const;
 
 const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
   const [betType, setBetType] = useState<'single' | 'multiple'>('single');
@@ -17,22 +32,7 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
-  const { writeAsync } = useContractWrite({
-    address: usdcAddress,
-    abi: [
-      {
-        name: 'transfer',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [
-          { name: 'to', type: 'address' },
-          { name: 'value', type: 'uint256' },
-        ],
-        outputs: [],
-      },
-    ],
-    functionName: 'transfer',
-  });
+  const config = useConfig();
 
   // Hàm kiểm tra thời gian cược
   const isBettingOpen = () => {
@@ -87,12 +87,14 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
     try {
       const totalCost = calculateTotalCost();
       const totalCostInWei = parseUnits(totalCost.toString(), 6);
-      await writeAsync({
+      await writeContract(config, {
+        address: usdcAddress,
+        abi: transferAbi,
+        functionName: 'transfer',
         args: [recipientAddress, totalCostInWei],
       });
-      // Lấy FID từ sdk.context
-      const fid = sdk.context.fid;
-      // Gửi thông báo qua API route
+      const context = await sdk.context;
+      const fid = context.user.fid;
       const response = await fetch('/api/send-notification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -108,7 +110,8 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
         const data = await response.json();
         setError(`Failed to send notification: ${data.error}`);
       }
-    } catch (err) {
+    } catch (error) {
+      console.error('Transaction failed:', error);
       setError('Transaction failed. Please check your USDC balance or try again.');
     }
   };
@@ -125,12 +128,14 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
     }
     try {
       const donationInWei = parseUnits(donationOnlyAmount.toString(), 6);
-      await writeAsync({
+      await writeContract(config, {
+        address: usdcAddress,
+        abi: transferAbi,
+        functionName: 'transfer',
         args: [recipientAddress, donationInWei],
       });
-      // Lấy FID từ sdk.context
-      const fid = sdk.context.fid;
-      // Gửi thông báo qua API route
+      const context = await sdk.context;
+      const fid = context.user.fid;
       const response = await fetch('/api/send-notification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -146,7 +151,8 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
         const data = await response.json();
         setError(`Failed to send notification: ${data.error}`);
       }
-    } catch (err) {
+    } catch (error) {
+      console.error('Donation failed:', error);
       setError('Donation failed. Please check your USDC balance or try again.');
     }
   };
@@ -156,7 +162,7 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
       <h1 className="text-2xl font-bold mb-4 text-center">{title || 'Indochinese Style Betting'}</h1>
       {!isConnected ? (
         <button
-          onClick={() => connect({ connector: connectors[0] })}
+          onClick={() => connect({ connector: connectors[0], chainId: 8453 })}
           className="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 mb-4 transition-colors"
         >
           Connect Wallet
@@ -250,7 +256,7 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
         </button>
       </div>
       <div className="mt-4 text-center">
-        <a href="/how-to-play" className="text-blue-500 hover:underline">How to Play</a>
+        <Link href="/how-to-play" className="text-blue-500 hover:underline">How to Play</Link>
       </div>
     </div>
   );

@@ -1,57 +1,44 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { base } from "@wagmi/chains";
-import { farcasterFrame } from "@farcaster/frame-wagmi-connector";
-import { APP_NAME, APP_ICON_URL, APP_URL } from "~/lib/constants";
+import { http, createConfig, WagmiProvider } from "wagmi";
+import { base } from "wagmi/chains";
 import { useEffect } from "react";
-import { useConnect, useAccount } from "wagmi";
-import React from "react";
-import { createConfig, http, WagmiProvider as WagmiProviderComponent } from "wagmi";
-
-const queryClient = new QueryClient();
+import { useAccount, useConnect } from "wagmi";
+import { farcasterFrame } from "@farcaster/frame-wagmi-connector";
 
 const config = createConfig({
   chains: [base],
   connectors: [
-    farcasterFrame({
-      appName: APP_NAME,
-      appIconUrl: APP_ICON_URL,
-      appUrl: APP_URL,
-    }),
+    farcasterFrame(), // Sửa lỗi: không truyền đối số
   ],
   transports: {
     [base.id]: http(),
   },
 });
 
+const queryClient = new QueryClient();
+
 function AutoConnect() {
-  const { connect, connectors, error } = useConnect();
-  const { isConnected, address } = useAccount();
+  const { isConnected } = useAccount();
+  const { connect, connectors } = useConnect();
 
   useEffect(() => {
-    if (!isConnected && connectors.length > 0) {
-      try {
-        connect({ connector: connectors[0], chainId: base.id });
-      } catch (error) {
-        console.error("Lỗi kết nối ví:", error);
-      }
-    } else if (!isConnected && connectors.length === 0) {
-      console.error("Không có connector nào khả dụng");
+    if (!isConnected) {
+      connect({ connector: connectors[0], chainId: base.id });
     }
-    console.log("Trạng thái kết nối ví:", { isConnected, address, connectors, error });
-  }, [connect, connectors, isConnected, error]);
+  }, [connect, connectors, isConnected]);
 
   return null;
 }
 
-export const WagmiProvider = ({ children }: { children: React.ReactNode }) => {
+export function Web3Provider({ children }: { children: React.ReactNode }) {
   return (
-    <WagmiProviderComponent config={config}>
+    <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <AutoConnect />
         {children}
       </QueryClientProvider>
-    </WagmiProviderComponent>
+    </WagmiProvider>
   );
-};
+}

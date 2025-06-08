@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 export default function HowToPlay() {
   return (
@@ -32,7 +33,7 @@ export default function HowToPlay() {
       <h2 className="text-xl font-semibold mb-2">Checking Results</h2>
       <p className="mb-4">Results are based on the Vietnam Northern Lottery (special prize and seven prizes). View official results at <a href="https://xoso.com.vn" className="text-blue-500 hover:underline">xoso.com.vn</a>.</p>
       <div className="text-center">
-        <a href="/" className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">Back to Betting</a>
+        <Link href="/" className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">Back to Betting</Link>
       </div>
     </div>
   );

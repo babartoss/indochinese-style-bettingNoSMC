@@ -1,10 +1,10 @@
 import { PropsWithChildren } from 'react';
 import '../styles/globals.css';
-import { WagmiProvider } from '~/components/providers/WagmiProvider';
+import { Web3Provider } from '~/components/providers/WagmiProvider';
 
 export const metadata = {
   title: 'Indochinese Style Betting',
-  description: 'A Farcaster mini app for betting on Vietnam Northern Lottery results',
+  description: 'A decentralized betting platform with Indochinese style',
   icons: {
     icon: '/favicon.ico',
   },
@@ -14,9 +14,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
   return (
     <html lang="en">
       <body>
-        <WagmiProvider>
-          {children}
-        </WagmiProvider>
+        <Web3Provider>{children}</Web3Provider>
       </body>
     </html>
   );

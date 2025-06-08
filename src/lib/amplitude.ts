@@ -3,7 +3,7 @@ import { APP_URL } from "./constants";
 // Amplitude tracking -- only runs if configured via the CLI or in the .env file
 export function logEvent(
   eventType: string, 
-  eventProperties: Record<string, any> = {}, 
+  eventProperties: Record<string, unknown> = {}, // Thay thế any bằng unknown
   deviceId: string | null = null
 ) {
   if (process.env.NEXT_PUBLIC_ANALYTICS_ENABLED?.toLowerCase() !== 'true' || process.env.NODE_ENV !== "production") {
@@ -12,7 +12,6 @@ export function logEvent(
 
   const event = {
     event_type: eventType,
-    api_key: '0c4fe46171b9bb8eca2ca61eb71f2e19',
     time: Date.now(),
     user_id: APP_URL,
     ...(deviceId && { device_id: deviceId }),
