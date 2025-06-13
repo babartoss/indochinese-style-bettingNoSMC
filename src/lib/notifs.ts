@@ -1,18 +1,38 @@
-import {
-  SendNotificationRequest,
-  sendNotificationResponseSchema,
-} from "@farcaster/frame-sdk";
-import { getUserNotificationDetails } from "~/lib/kv";
-import { APP_URL } from "./constants";
+import { kv } from '@vercel/kv';
+import { APP_URL } from './constants';
 
-type SendFrameNotificationResult =
-  | {
-      state: "error";
-      error: unknown;
-    }
-  | { state: "no_token" }
-  | { state: "rate_limit" }
-  | { state: "success" };
+interface NotificationDetails {
+  url: string;
+  token: string;
+}
+
+export type SendFrameNotificationResult = 'success' | 'no_token' | 'rate_limit' | 'error';
+
+export async function getUserNotificationDetails(fid: number): Promise<NotificationDetails | null> {
+  try {
+    const details = await kv.get(`user:${fid}:notificationDetails`);
+    return details as NotificationDetails | null;
+  } catch (error) {
+    console.error('Error fetching notification details:', error);
+    return null;
+  }
+}
+
+export async function setUserNotificationDetails(fid: number, details: NotificationDetails) {
+  try {
+    await kv.set(`user:${fid}:notificationDetails`, details);
+  } catch (error) {
+    console.error('Error setting notification details:', error);
+  }
+}
+
+export async function deleteUserNotificationDetails(fid: number) {
+  try {
+    await kv.del(`user:${fid}:notificationDetails`);
+  } catch (error) {
+    console.error('Error deleting notification details:', error);
+  }
+}
 
 export async function sendFrameNotification({
   fid,
@@ -22,43 +42,36 @@ export async function sendFrameNotification({
   fid: number;
   title: string;
   body: string;
-}): Promise<SendFrameNotificationResult> {
-  const notificationDetails = await getUserNotificationDetails(fid);
-  if (!notificationDetails) {
-    return { state: "no_token" };
-  }
-
-  const response = await fetch(notificationDetails.url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      notificationId: crypto.randomUUID(),
-      title,
-      body,
-      targetUrl: APP_URL,
-      tokens: [notificationDetails.token],
-    } satisfies SendNotificationRequest),
-  });
-
-  const responseJson = await response.json();
-
-  if (response.status === 200) {
-    const responseBody = sendNotificationResponseSchema.safeParse(responseJson);
-    if (responseBody.success === false) {
-      // Malformed response
-      return { state: "error", error: responseBody.error.errors };
+}): Promise<{ result: SendFrameNotificationResult; error?: unknown }> {
+  try {
+    const details = await getUserNotificationDetails(fid);
+    if (!details) {
+      return { result: 'no_token' };
     }
 
-    if (responseBody.data.result.rateLimitedTokens.length) {
-      // Rate limited
-      return { state: "rate_limit" };
+    const response = await fetch(details.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${details.token}`,
+      },
+      body: JSON.stringify({
+        title,
+        body,
+        targetUrl: APP_URL,
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        return { result: 'rate_limit' };
+      }
+      return { result: 'error', error: new Error(`HTTP error: ${response.status}`) };
     }
 
-    return { state: "success" };
-  } else {
-    // Error response
-    return { state: "error", error: responseJson };
+    return { result: 'success' };
+  } catch (error) {
+    console.error('Error sending frame notification:', error);
+    return { result: 'error', error };
   }
 }

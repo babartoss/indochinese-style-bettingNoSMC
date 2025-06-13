@@ -10,38 +10,52 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const neynarEnabled = process.env.NEYNAR_API_KEY && process.env.NEYNAR_CLIENT_ID;
+  const neynarEnabled = !!process.env.NEYNAR_API_KEY;
 
-  const requestJson = await request.json();
-  const requestBody = requestSchema.safeParse(requestJson);
+  try {
+    const requestJson = await request.json();
+    const requestBody = requestSchema.safeParse(requestJson);
 
-  if (requestBody.success === false) {
+    if (!requestBody.success) {
+      return NextResponse.json(
+        { success: false, errors: requestBody.error.errors },
+        { status: 400 }
+      );
+    }
+
+    const { fid, title, body } = requestBody.data;
+
+    const sendNotification = neynarEnabled ? sendNeynarFrameNotification : sendFrameNotification;
+    const sendResult = await sendNotification({
+      fid: Number(fid),
+      title,
+      body,
+    });
+
+    if (sendResult.result === 'error') {
+      const errorMessage = sendResult.error ? String(sendResult.error) : 'Failed to send notification';
+      return NextResponse.json(
+        { success: false, error: errorMessage },
+        { status: 500 }
+      );
+    } else if (sendResult.result === 'rate_limit') {
+      return NextResponse.json(
+        { success: false, error: 'Rate limit exceeded' },
+        { status: 429 }
+      );
+    } else if (sendResult.result === 'no_token') {
+      return NextResponse.json(
+        { success: false, error: 'No notification token found' },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error processing notification request:', error);
     return NextResponse.json(
-      { success: false, errors: requestBody.error.errors },
-      { status: 400 }
-    );
-  }
-
-  const { fid, title, body } = requestBody.data;
-
-  const sendNotification = neynarEnabled ? sendNeynarFrameNotification : sendFrameNotification;
-  const sendResult = await sendNotification({
-    fid: Number(fid),
-    title,
-    body,
-  });
-
-  if (sendResult.state === "error") {
-    return NextResponse.json(
-      { success: false, error: sendResult.error },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
-  } else if (sendResult.state === "rate_limit") {
-    return NextResponse.json(
-      { success: false, error: "Rate limited" },
-      { status: 429 }
-    );
   }
-
-  return NextResponse.json({ success: true });
 }

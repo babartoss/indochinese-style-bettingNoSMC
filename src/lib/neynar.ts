@@ -1,44 +1,34 @@
-import { NeynarAPIClient, Configuration, WebhookUserCreated } from '@neynar/nodejs-sdk';
+import { Configuration, NeynarAPIClient, WebhookUserCreated } from '@neynar/nodejs-sdk';
 import { APP_URL } from './constants';
 
 let neynarClient: NeynarAPIClient | null = null;
 
-// Example usage:
-// const client = getNeynarClient();
-// const user = await client.lookupUserByFid(fid); 
-export function getNeynarClient() {
+export function getNeynarClient(): NeynarAPIClient {
   if (!neynarClient) {
     const apiKey = process.env.NEYNAR_API_KEY;
     if (!apiKey) {
       throw new Error('NEYNAR_API_KEY not configured');
     }
-    const config = new Configuration({ apiKey });
+    const config = new Configuration({ apiKey: apiKey });
     neynarClient = new NeynarAPIClient(config);
   }
   return neynarClient;
 }
 
-type User = WebhookUserCreated['data'];
-
 export async function getNeynarUser(fid: number): Promise<User | null> {
   try {
     const client = getNeynarClient();
-    const usersResponse = await client.fetchBulkUsers({ fids: [fid] });
-    return usersResponse.users[0];
+    const response = await client.fetchBulkUsers({ fids: [fid] });
+    return response.users[0] as User;
   } catch (error) {
-    console.error('Error getting Neynar user:', error);
+    console.error('Error fetching Neynar user:', error);
     return null;
   }
 }
 
-type SendFrameNotificationResult =
-  | {
-      state: "error";
-      error: unknown;
-    }
-  | { state: "no_token" }
-  | { state: "rate_limit" }
-  | { state: "success" };
+export type User = WebhookUserCreated['data'];
+
+export type SendFrameNotificationResult = 'success' | 'no_token' | 'rate_limit' | 'error';
 
 export async function sendNeynarFrameNotification({
   fid,
@@ -48,29 +38,29 @@ export async function sendNeynarFrameNotification({
   fid: number;
   title: string;
   body: string;
-}): Promise<SendFrameNotificationResult> {
+}): Promise<{ result: SendFrameNotificationResult; error?: Error }> {
   try {
     const client = getNeynarClient();
-    const targetFids = [fid];
     const notification = {
       title,
       body,
       target_url: APP_URL,
     };
-
-    const result = await client.publishFrameNotifications({ 
-      targetFids, 
-      notification 
-    });
-
-    if (result.notification_deliveries.length > 0) {
-      return { state: "success" };
-    } else if (result.notification_deliveries.length === 0) {
-      return { state: "no_token" };
+    const response = await client.publishFrameNotifications({ targetFids: [fid], notification });
+    if (response.notification_deliveries && response.notification_deliveries.length > 0) {
+      const delivery = response.notification_deliveries[0];
+      if (delivery.status === "success") {
+        return { result: 'success' };
+      } else {
+        console.log('Delivery status:', delivery.status);
+        // Bạn có thể thêm điều kiện dựa trên trạng thái cụ thể, ví dụ:
+        // if (delivery.status === "no_token") return { result: 'no_token' };
+        return { result: 'error' };
+      }
     } else {
-      return { state: "error", error: result || "Unknown error" };
+      return { result: 'error' };
     }
   } catch (error) {
-    return { state: "error", error };
+    return { result: 'error', error: error as Error };
   }
-} 
+}
