@@ -30,11 +30,11 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
   const [donationOnlyAmount, setDonationOnlyAmount] = useState<number>(0);
   const [error, setError] = useState<string>('');
   const { address, isConnected } = useAccount();
-  const { connect, connectors, error: connectError } = useConnect();
+  const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const config = useConfig();
 
-  // Function to check betting time
+  // Hàm kiểm tra thời gian cược
   const isBettingOpen = () => {
     const now = new Date();
     const utcHour = now.getUTCHours();
@@ -43,7 +43,7 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
     return currentTime >= 20 || currentTime < 14;
   };
 
-  // Handle number selection
+  // Hàm xử lý chọn số
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     const numbers = value
@@ -53,7 +53,7 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
     setSelectedNumbers(numbers);
   };
 
-  // Calculate total cost
+  // Hàm tính tổng chi phí cược
   const calculateTotalCost = () => {
     if (betType === 'single') {
       return betAmount * 5 + 0.1;
@@ -62,7 +62,7 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
     }
   };
 
-  // Handle place bet
+  // Hàm xử lý đặt cược
   const handlePlaceBet = async () => {
     if (!isBettingOpen()) {
       setError('Betting is only open from 20:00 UTC to 14:00 UTC the next day.');
@@ -116,7 +116,7 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
     }
   };
 
-  // Handle donate only
+  // Hàm xử lý donate
   const handleDonateOnly = async () => {
     if (!isConnected) {
       setError('Please connect your wallet.');
@@ -178,7 +178,6 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
           </button>
         </div>
       )}
-      {connectError && <p className="text-red-500 mb-4">{connectError.message}</p>}
       <div className="mb-4">
         <h2 className="text-xl font-semibold mb-2">Place a Bet</h2>
         <label className="block text-sm font-medium mb-1">Bet Type</label>
