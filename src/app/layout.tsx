@@ -13,6 +13,9 @@ export const metadata = {
 export default function RootLayout({ children }: PropsWithChildren) {
   return (
     <html lang="en">
+      <head>
+        <script src="https://esm.sh/@farcaster/frame-sdk" async />
+      </head>
       <body>
         <Web3Provider>{children}</Web3Provider>
       </body>

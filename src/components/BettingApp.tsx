@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAccount, useConnect, useDisconnect, useConfig } from 'wagmi';
 import { writeContract } from 'wagmi/actions';
 import { sdk } from '@farcaster/frame-sdk';
@@ -24,135 +24,174 @@ const transferAbi = [
 ] as const;
 
 const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
-  const [betType, setBetType] = useState<'single' | 'multiple'>('single');
-  const [selectedNumbers, setSelectedNumbers] = useState<string[]>([]);
-  const [betAmount, setBetAmount] = useState<number>(0.2);
-  const [donationOnlyAmount, setDonationOnlyAmount] = useState<number>(0);
+  const [betType, setBetType] = useState<'single' | 'fullSet'>('single');
+  const [selectedNumber, setSelectedNumber] = useState<string>('');
+  const [betAmount, setBetAmount] = useState<string>('0.2');
+  const [donationOnlyAmount, setDonationOnlyAmount] = useState<string>('');
   const [error, setError] = useState<string>('');
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const config = useConfig();
 
-  // Hàm kiểm tra thời gian cược
+  useEffect(() => {
+    console.log('[BettingApp] Component mounted');
+  }, []);
+
+  // Function to check betting time (UTC)
   const isBettingOpen = () => {
     const now = new Date();
     const utcHour = now.getUTCHours();
     const utcMinutes = now.getUTCMinutes();
     const currentTime = utcHour + utcMinutes / 60;
-    return currentTime >= 20 || currentTime < 14;
+    return currentTime >= 12 || currentTime < 7; // 12:00 UTC to 07:00 UTC next day
   };
 
-  // Hàm xử lý chọn số
+  // Function to handle number selection
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    const numbers = value
-      .split(',')
-      .map(num => num.trim())
-      .filter(num => num.length === 2 && !isNaN(Number(num)) && Number(num) >= 0 && Number(num) <= 99);
-    setSelectedNumbers(numbers);
+    if (/^\d*$/.test(value)) { // Allow digits only
+      setSelectedNumber(value);
+    }
   };
 
-  // Hàm tính tổng chi phí cược
-  const calculateTotalCost = () => {
+  // Function to handle bet amount change
+  const handleBetAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (/^\d*\.?\d*$/.test(value)) { // Allow numbers and decimal point
+      setBetAmount(value);
+    }
+  };
+
+  // Function to handle donation amount change
+  const handleDonationAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (/^\d*\.?\d*$/.test(value)) { // Allow numbers and decimal point
+      setDonationOnlyAmount(value);
+    }
+  };
+
+  // Function to calculate total bet cost
+  const calculateTotalCost = (betAmountNum: number) => {
     if (betType === 'single') {
-      return betAmount * 5 + 0.1;
+      return betAmountNum * 5 + 0.1;
     } else {
-      return selectedNumbers.length * betAmount * 5 + 0.1;
+      return betAmountNum * 27 + 0.1;
     }
   };
 
-  // Hàm xử lý đặt cược
+  // Function to handle placing a bet
   const handlePlaceBet = async () => {
-    if (!isBettingOpen()) {
-      setError('Betting is only open from 20:00 UTC to 14:00 UTC the next day.');
-      return;
-    }
+    console.log('[BettingApp] handlePlaceBet called');
+    setError('');
     if (!isConnected) {
       setError('Please connect your wallet.');
       return;
     }
-    if (betType === 'single' && selectedNumbers.length !== 1) {
-      setError('Please select exactly one two-digit number (00-99) for single ticket bet.');
+    if (!isBettingOpen()) {
+      setError('Betting is closed. Please try again during betting hours: 12:00 UTC to 07:00 UTC the next day.');
       return;
     }
-    if (betType === 'multiple' && selectedNumbers.length < 1) {
-      setError('Please select at least one two-digit number (00-99) for multiple tickets bet.');
+    if (!/^\d{2}$/.test(selectedNumber)) {
+      setError('Please enter exactly two digits (00-99).');
       return;
     }
-    if (betAmount < 0.2 || betAmount > 100) {
+    const betAmountNum = parseFloat(betAmount);
+    if (isNaN(betAmountNum) || betAmountNum < 0.2 || betAmountNum > 100) {
       setError('Bet amount must be between 0.20 USDC and 100 USDC.');
       return;
     }
     try {
-      const totalCost = calculateTotalCost();
+      const totalCost = calculateTotalCost(betAmountNum);
       const totalCostInWei = parseUnits(totalCost.toString(), 6);
+      console.log('[BettingApp] Initiating contract write:', { usdcAddress, totalCostInWei });
       await writeContract(config, {
         address: usdcAddress,
         abi: transferAbi,
         functionName: 'transfer',
         args: [recipientAddress, totalCostInWei],
       });
-      const context = await sdk.context;
-      const fid = context.user.fid;
-      const response = await fetch('/api/send-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fid,
-          title: 'Bet Placed',
-          body: `Bet placed: ${selectedNumbers.join(', ')} with ${betAmount} USDC each, total cost ${totalCost} USDC (fee: 0.10 USDC)`,
-        }),
-      });
-      if (response.ok) {
-        alert('Bet placed successfully!');
-      } else {
-        const data = await response.json();
-        setError(`Failed to send notification: ${data.error}`);
+      console.log('[BettingApp] Contract write successful');
+      try {
+        const context = await sdk.context;
+        const fid = context.user.fid;
+        console.log('[BettingApp] Sending notification with fid:', fid);
+        const response = await fetch('/api/send-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fid,
+            title: betType === 'single' ? 'Single Ticket Bet Placed' : 'Full Set Bet Placed',
+            body: `${betType === 'single' ? 'Single Ticket Bet' : 'Full Set Bet'}: Number ${selectedNumber} with ${betAmountNum} USDC per position, total cost ${totalCost} USDC (fee: 0.10 USDC)`,
+          }),
+        });
+        if (response.ok) {
+          alert('Bet placed successfully!');
+          setSelectedNumber('');
+          setBetAmount('0.2');
+        } else {
+          const data = await response.json();
+          setError(`Failed to send notification: ${data.error}`);
+        }
+      } catch (sdkError) {
+        console.error('[BettingApp] Error accessing Farcaster SDK context:', sdkError);
+        setError('Farcaster SDK is not ready. Please try again later.');
       }
     } catch (error) {
-      console.error('Transaction failed:', error);
+      console.error('[BettingApp] Transaction failed:', error);
       setError('Transaction failed. Please check your USDC balance or try again.');
     }
   };
 
-  // Hàm xử lý donate
+  // Function to handle donation
   const handleDonateOnly = async () => {
+    console.log('[BettingApp] handleDonateOnly called');
+    setError('');
     if (!isConnected) {
       setError('Please connect your wallet.');
       return;
     }
-    if (donationOnlyAmount <= 0) {
+    const donationAmountNum = parseFloat(donationOnlyAmount);
+    if (isNaN(donationAmountNum) || donationAmountNum <= 0) {
       setError('Donation amount must be greater than 0 USDC.');
       return;
     }
     try {
-      const donationInWei = parseUnits(donationOnlyAmount.toString(), 6);
+      const donationInWei = parseUnits(donationOnlyAmount, 6);
+      console.log('[BettingApp] Initiating donation contract write:', { usdcAddress, donationInWei });
       await writeContract(config, {
         address: usdcAddress,
         abi: transferAbi,
         functionName: 'transfer',
         args: [recipientAddress, donationInWei],
       });
-      const context = await sdk.context;
-      const fid = context.user.fid;
-      const response = await fetch('/api/send-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fid,
-          title: 'Donation Made',
-          body: `Donation of ${donationOnlyAmount} USDC made.`,
-        }),
-      });
-      if (response.ok) {
-        alert('Donation made successfully!');
-      } else {
-        const data = await response.json();
-        setError(`Failed to send notification: ${data.error}`);
+      console.log('[BettingApp] Donation contract write successful');
+      try {
+        const context = await sdk.context;
+        const fid = context.user.fid;
+        console.log('[BettingApp] Sending donation notification with fid:', fid);
+        const response = await fetch('/api/send-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fid,
+            title: 'Donation Made',
+            body: `Donation of ${donationOnlyAmount} USDC made.`,
+          }),
+        });
+        if (response.ok) {
+          alert('Donation made successfully!');
+          setDonationOnlyAmount('');
+        } else {
+          const data = await response.json();
+          setError(`Failed to send notification: ${data.error}`);
+        }
+      } catch (sdkError) {
+        console.error('[BettingApp] Error accessing Farcaster SDK context:', sdkError);
+        setError('Farcaster SDK is not ready. Please try again later.');
       }
     } catch (error) {
-      console.error('Donation failed:', error);
+      console.error('[BettingApp] Donation failed:', error);
       setError('Donation failed. Please check your USDC balance or try again.');
     }
   };
@@ -162,7 +201,10 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
       <h1 className="text-2xl font-bold mb-4 text-center">{title || 'Indochinese Style Betting'}</h1>
       {!isConnected ? (
         <button
-          onClick={() => connect({ connector: connectors[0], chainId: 8453 })}
+          onClick={() => {
+            console.log('[BettingApp] Connect Wallet button clicked');
+            connect({ connector: connectors[0], chainId: 8453 });
+          }}
           className="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 mb-4 transition-colors"
         >
           Connect Wallet
@@ -171,7 +213,10 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
         <div className="mb-4">
           <p className="text-sm">Connected: {address}</p>
           <button
-            onClick={() => disconnect()}
+            onClick={() => {
+              console.log('[BettingApp] Disconnect button clicked');
+              disconnect();
+            }}
             className="text-blue-500 hover:underline"
           >
             Disconnect
@@ -183,57 +228,67 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
         <label className="block text-sm font-medium mb-1">Bet Type</label>
         <div className="flex space-x-4">
           <button
-            onClick={() => setBetType('single')}
+            onClick={() => {
+              console.log('[BettingApp] Bet type set to single');
+              setBetType('single');
+            }}
             className={`px-4 py-2 rounded ${betType === 'single' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'} transition-colors`}
           >
             Single Ticket
           </button>
           <button
-            onClick={() => setBetType('multiple')}
-            className={`px-4 py-2 rounded ${betType === 'multiple' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'} transition-colors`}
+            onClick={() => {
+              console.log('[BettingApp] Bet type set to full set');
+              setBetType('fullSet');
+            }}
+            className={`px-4 py-2 rounded ${betType === 'fullSet' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'} transition-colors`}
           >
-            Multiple Tickets
+            Full Set Bet
           </button>
         </div>
       </div>
       <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">Select Numbers (comma-separated, 00-99)</label>
+        <label className="block text-sm font-medium mb-1">Select Number (00-99)</label>
         <input
           type="text"
-          placeholder={betType === 'single' ? 'E.g., 12' : 'E.g., 12,22,33'}
+          placeholder="E.g., 12"
+          value={selectedNumber}
           onChange={handleNumberChange}
+          maxLength={2}
           className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+        <p className="text-sm text-gray-500 mt-1">Enter exactly two digits (00-99)</p>
         {betType === 'single' && (
           <div className="text-sm mt-2">
-            <p>Total cost: {(betAmount * 5 + 0.1).toFixed(2)} USDC (Bet amount × 5 + 0.10 USDC fee)</p>
+            <p>Total cost: {(parseFloat(betAmount || '0') * 5 + 0.1).toFixed(2)} USDC (Bet amount × 5 + 0.10 USDC fee)</p>
             <p className="text-gray-600">Example: Bet 0.30 USDC on one number, total = 0.30 × 5 + 0.10 = 1.60 USDC.</p>
           </div>
         )}
-        {betType === 'multiple' && (
+        {betType === 'fullSet' && (
           <div className="text-sm mt-2">
-            <p>Total cost: {(selectedNumbers.length * betAmount * 5 + 0.1).toFixed(2)} USDC (Number of tickets × Bet amount × 5 + 0.10 USDC fee)</p>
-            <p className="text-gray-600">Example: Bet 0.40 USDC on three numbers, total = 3 × 0.40 × 5 + 0.10 = 6.10 USDC.</p>
+            <p>Total cost: {(parseFloat(betAmount || '0') * 27 + 0.1).toFixed(2)} USDC (Bet amount × 27 + 0.10 USDC fee)</p>
+            <p className="text-gray-600">Example: Bet 0.20 USDC on one number for all 27 positions, total = 0.20 × 27 + 0.10 = 5.50 USDC.</p>
           </div>
         )}
       </div>
       <div className="mb-4">
         <label className="block text-sm font-medium mb-1">Bet Amount per Position (USDC)</label>
         <input
-          type="number"
+          type="text"
+          inputMode="decimal"
           value={betAmount}
-          onChange={(e) => setBetAmount(parseFloat(e.target.value))}
-          min="0.2"
-          max="100"
-          step="0.01"
+          onChange={handleBetAmountChange}
           className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+        <p className="text-sm text-gray-500 mt-1">Enter 0.20–100 USDC</p>
       </div>
       {error && <p className="text-red-500 mb-4">{error}</p>}
+      <p className={isBettingOpen() ? 'text-green-500 mb-2' : 'text-red-500 mb-2'}>
+        {isBettingOpen() ? 'Betting is open' : 'Betting is closed'}
+      </p>
       <button
         onClick={handlePlaceBet}
         className="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors mb-4"
-        disabled={!isBettingOpen()}
       >
         Place Bet
       </button>
@@ -241,13 +296,13 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
         <h2 className="text-xl font-semibold mb-2">Donate Only</h2>
         <label className="block text-sm font-medium mb-1">Donation Amount (USDC)</label>
         <input
-          type="number"
+          type="text"
+          inputMode="decimal"
           value={donationOnlyAmount}
-          onChange={(e) => setDonationOnlyAmount(parseFloat(e.target.value) || 0)}
-          min="0"
-          step="0.01"
-          className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          onChange={handleDonationAmountChange}
+          className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-600"
         />
+        <p className="text-sm text-gray-500 mt-1">Enter amount greater than 0 USDC</p>
         <button
           onClick={handleDonateOnly}
           className="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors mt-2"
@@ -255,7 +310,7 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
           Donate Only
         </button>
       </div>
-      <div className="mt-4 text-center">
+      <div className="text-center mt-4">
         <Link href="/how-to-play" className="text-blue-500 hover:underline">How to Play</Link>
       </div>
     </div>
