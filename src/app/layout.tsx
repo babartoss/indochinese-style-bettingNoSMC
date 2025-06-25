@@ -1,20 +1,24 @@
-import { PropsWithChildren } from 'react';
-import '../styles/globals.css';
+import { cookies } from 'next/headers';
+import Script from 'next/script';
 import { Web3Provider } from '~/components/providers/WagmiProvider';
+import '../styles/globals.css';
 
-export const metadata = {
-  title: 'Indochinese Style Betting',
-  description: 'A decentralized betting platform with Indochinese style',
-  icons: {
-    icon: '/favicon.ico',
-  },
-};
-
-export default function RootLayout({ children }: PropsWithChildren) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = await cookies();
+  const nonce = cookieStore.get('csp-nonce')?.value;
   return (
     <html lang="en">
       <head>
-        <script src="https://esm.sh/@farcaster/frame-sdk" async />
+        {nonce && (
+          <Script
+            strategy="afterInteractive"
+            id="nonce-script"
+            nonce={nonce}
+            dangerouslySetInnerHTML={{
+              __html: `__webpack_nonce__ = ${JSON.stringify(nonce)}`,
+            }}
+          />
+        )}
       </head>
       <body>
         <Web3Provider>{children}</Web3Provider>
