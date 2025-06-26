@@ -24,12 +24,12 @@ const HowToPlay: React.FC<{ onStart: () => void }> = ({ onStart }) => {
       <h2 className="text-xl font-semibold mb-2">How to Place a Bet</h2>
       <ol className="list-decimal pl-5 mb-4">
         <li>Connect your wallet using Farcaster authentication.</li>
-        <li>Choose your bet type: Single Ticket (one two-digit number, 00-99, checked against specific prizes) or Full Set Bet (one two-digit number, checked against all 27 prizes).</li>
+        <li>Choose your bet type: Single Ticket (bet on one two-digit number, from 00-99, compared against the four numbers of Prize 7 and the last two digits of the Special Prize) or Full Set Bet (one two-digit number, checked against all 27 prizes).</li>
         <li>Enter the bet amount per position (minimum 0.20 USDC, maximum 100 USDC).</li>
         <li>Review the total cost and place your bet before the closing time.</li>
       </ol>
 
-      <h2 className="text-xl font-semibold mb-2">Optional: Send Bet via Telegram</h2>
+      <h2 className="text-xl font-semibold mb-2">Optional: Send Bet via Messenger</h2>
       <p className="mb-2">
         For extra security or in case the app fails to record your bet, you can send your bet details directly to our assistant at <a href="https://farcaster.xyz/babartos" className="text-blue-500 hover:underline">@babartos</a> using the following format:
       </p>
@@ -58,7 +58,7 @@ Wallet = (your wallet address - optional but recommended).`}
       </ul>
 
       <h2 className="text-xl font-semibold mb-2">Checking Results</h2>
-      <p className="mb-4">Results are based on the Vietnam Northern Lottery (special prize and seven prizes). View official results at <a href="https://www.minhngoc.net.vn/ket-qua-xo-so/mien-bac.html" className="text-blue-500 hover:underline">Click Here</a>.</p>
+      <p className="mb-4">Results are based on the Vietnam Northern Lottery. View official results at <a href="https://www.minhngoc.net.vn/ket-qua-xo-so/mien-bac.html" className="text-blue-500 hover:underline">Click Here</a>.</p>
 
       <div className="text-center">
         <button
