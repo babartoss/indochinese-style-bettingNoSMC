@@ -12,15 +12,17 @@ interface AccountAssociation {
 
 interface MiniAppManifest {
   accountAssociation?: AccountAssociation;
-  version: string;
-  name: string;
-  homeUrl: string;
-  iconUrl: string;
-  splashImageUrl?: string;
-  webhookUrl?: string;
-  description?: string;
-  primaryCategory?: string;
-  tags?: string[];
+  frame: {
+    version: string;
+    name: string;
+    homeUrl: string;
+    iconUrl: string;
+    splashImageUrl?: string;
+    webhookUrl?: string;
+    description?: string;
+    primaryCategory?: string;
+    tags?: string[];
+  };
 }
 
 export function cn(...inputs: ClassValue[]) {
@@ -79,15 +81,17 @@ export async function getFarcasterMetadata(): Promise<MiniAppManifest> {
 
   return {
     ...(accountAssociation && { accountAssociation }),
-    version: '1',
-    name: APP_NAME,
-    homeUrl: baseUrl,
-    iconUrl: `${baseUrl}/image.png`,
-    splashImageUrl: APP_SPLASH_URL,
-    webhookUrl: APP_WEBHOOK_URL,
-    description: APP_DESCRIPTION,
-    primaryCategory: 'games',
-    tags: ['lottery', 'betting', 'crypto', 'web3'],
+    frame: {
+      version: '1',
+      name: APP_NAME,
+      homeUrl: baseUrl,
+      iconUrl: `${baseUrl}/image.png`,
+      splashImageUrl: APP_SPLASH_URL,
+      webhookUrl: APP_WEBHOOK_URL,
+      description: APP_DESCRIPTION,
+      primaryCategory: 'games',
+      tags: ['lottery', 'betting', 'crypto', 'web3'],
+    },
   };
 }
 
