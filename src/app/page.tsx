@@ -3,21 +3,26 @@ import MainApp from '~/components/MainApp';
 import type { Metadata } from 'next';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const imageUrl = `${APP_URL}/image.png`;
+  const embedJson = JSON.stringify({
+    version: "next",
+    imageUrl: `${APP_URL}/image.png`,
+    button: {
+      title: "Try your luck",
+      action: {
+        type: "launch_frame",
+        name: "Indochinese Style Betting",
+        url: APP_URL,
+        splashImageUrl: `${APP_URL}/splash.png`,
+        splashBackgroundColor: "#ffffff"
+      }
+    }
+  });
+
   return {
-    title: 'Indochinese Style Betting',
-    description: 'A decentralized betting platform with Indochinese style',
-    openGraph: {
-      images: [imageUrl],
-    },
     other: {
-      'fc:frame': 'vNext',
-      'fc:frame:image': imageUrl,
-      'fc:frame:button:1': 'Try your luck',
-      'fc:frame:button:1:action': 'link',
-      'fc:frame:button:1:target': APP_URL,
-      'og:image': imageUrl,
-    },
+      'fc:frame': embedJson,
+      'og:image': `${APP_URL}/image.png`
+    }
   };
 }
 
