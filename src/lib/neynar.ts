@@ -1,5 +1,6 @@
 import { Configuration, NeynarAPIClient, WebhookUserCreated } from '@neynar/nodejs-sdk';
 import { APP_URL } from './constants';
+import { v4 as uuidv4 } from 'uuid';
 
 let neynarClient: NeynarAPIClient | null = null;
 
@@ -45,22 +46,22 @@ export async function sendNeynarFrameNotification({
       title,
       body,
       target_url: APP_URL,
+      uuid: uuidv4(), // Tạo UUID duy nhất cho thông báo
     };
     const response = await client.publishFrameNotifications({ targetFids: [fid], notification });
     if (response.notification_deliveries && response.notification_deliveries.length > 0) {
       const delivery = response.notification_deliveries[0];
-      if (delivery.status === "success") {
+      if (delivery.status === 'success') {
         return { result: 'success' };
       } else {
         console.log('Delivery status:', delivery.status);
-        // Bạn có thể thêm điều kiện dựa trên trạng thái cụ thể, ví dụ:
-        // if (delivery.status === "no_token") return { result: 'no_token' };
         return { result: 'error' };
       }
     } else {
       return { result: 'error' };
     }
   } catch (error) {
+    console.error('Lỗi khi gửi thông báo qua Neynar:', error);
     return { result: 'error', error: error as Error };
   }
 }
