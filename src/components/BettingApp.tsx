@@ -6,6 +6,8 @@ import { writeContract } from 'wagmi/actions';
 import { sdk } from '@farcaster/frame-sdk';
 import { parseUnits } from 'viem';
 import Link from 'next/link';
+import { MANAGER_FID } from '../lib/constants';
+import { truncateAddress } from '../lib/truncateAddress';
 
 const usdcAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'; // USDC on Base
 const recipientAddress = '0xb37bF0176558B9e76507b79d38D4696DD1805bee'; // Recipient address
@@ -115,23 +117,43 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
       try {
         const context = await sdk.context;
         const fid = context.user.fid;
-        console.log('[BettingApp] Sending notification with fid:', fid);
-        const response = await fetch('/api/send-notification', {
+        const truncatedAddress = truncateAddress(address || '');
+        const playerBody = `${betType === 'single' ? 'Single Ticket' : 'Full Set'} Bet: Number ${selectedNumber} with ${betAmountNum} USDC per position, total cost ${totalCost} USDC (fee: 0.10 USDC), Wallet: ${truncatedAddress}`;
+        const managerBody = `User FID ${fid}, Wallet ${truncatedAddress}, placed a ${betType} bet: Number ${selectedNumber}, Amount per position ${betAmountNum} USDC, Total ${totalCost} USDC`;
+
+        // Gửi thông báo cho người chơi
+        const playerResponse = await fetch('/api/send-notification', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             fid,
             title: betType === 'single' ? 'Single Ticket Bet Placed' : 'Full Set Bet Placed',
-            body: `${betType === 'single' ? 'Single Ticket Bet' : 'Full Set Bet'}: Number ${selectedNumber} with ${betAmountNum} USDC per position, total cost ${totalCost} USDC (fee: 0.10 USDC)`,
+            body: playerBody,
           }),
         });
-        if (response.ok) {
+
+        // Gửi thông báo cho người quản lý
+        const managerResponse = await fetch('/api/send-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fid: MANAGER_FID,
+            title: 'New Bet Placed',
+            body: managerBody,
+          }),
+        });
+
+        if (playerResponse.ok) {
           alert('Bet placed successfully!');
           setSelectedNumber('');
           setBetAmount('0.2');
         } else {
-          const data = await response.json();
+          const data = await playerResponse.json();
           setError(`Failed to send notification: ${data.error}`);
+        }
+
+        if (!managerResponse.ok) {
+          console.error('Failed to send notification to manager:', await managerResponse.json());
         }
       } catch (sdkError) {
         console.error('[BettingApp] Error accessing Farcaster SDK context:', sdkError);
@@ -169,22 +191,42 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
       try {
         const context = await sdk.context;
         const fid = context.user.fid;
-        console.log('[BettingApp] Sending donation notification with fid:', fid);
-        const response = await fetch('/api/send-notification', {
+        const truncatedAddress = truncateAddress(address || '');
+        const playerBody = `Donation of ${donationOnlyAmount} USDC, Wallet: ${truncatedAddress}`;
+        const managerBody = `User FID ${fid}, Wallet ${truncatedAddress}, donated ${donationOnlyAmount} USDC`;
+
+        // Gửi thông báo cho người chơi
+        const playerResponse = await fetch('/api/send-notification', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             fid,
             title: 'Donation Made',
-            body: `Donation of ${donationOnlyAmount} USDC made.`,
+            body: playerBody,
           }),
         });
-        if (response.ok) {
+
+        // Gửi thông báo cho người quản lý
+        const managerResponse = await fetch('/api/send-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fid: MANAGER_FID,
+            title: 'New Donation Made',
+            body: managerBody,
+          }),
+        });
+
+        if (playerResponse.ok) {
           alert('Donation made successfully!');
           setDonationOnlyAmount('');
         } else {
-          const data = await response.json();
+          const data = await playerResponse.json();
           setError(`Failed to send notification: ${data.error}`);
+        }
+
+        if (!managerResponse.ok) {
+          console.error('Failed to send donation notification to manager:', await managerResponse.json());
         }
       } catch (sdkError) {
         console.error('[BettingApp] Error accessing Farcaster SDK context:', sdkError);
