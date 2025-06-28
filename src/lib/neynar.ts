@@ -7,28 +7,13 @@ let neynarClient: NeynarAPIClient | null = null;
 export function getNeynarClient(): NeynarAPIClient {
   if (!neynarClient) {
     const apiKey = process.env.NEYNAR_API_KEY;
-    if (!apiKey) {
-      throw new Error('NEYNAR_API_KEY not configured');
-    }
-    const config = new Configuration({ apiKey: apiKey });
-    neynarClient = new NeynarAPIClient(config);
+    if (!apiKey) throw new Error('NEYNAR_API_KEY not configured');
+    neynarClient = new NeynarAPIClient(new Configuration({ apiKey }));
   }
   return neynarClient;
 }
 
-export async function getNeynarUser(fid: number): Promise<User | null> {
-  try {
-    const client = getNeynarClient();
-    const response = await client.fetchBulkUsers({ fids: [fid] });
-    return response.users[0] as User;
-  } catch (error) {
-    console.error('Error fetching Neynar user:', error);
-    return null;
-  }
-}
-
 export type User = WebhookUserCreated['data'];
-
 export type SendFrameNotificationResult = 'success' | 'no_token' | 'rate_limit' | 'error';
 
 export async function sendNeynarFrameNotification({
@@ -46,22 +31,18 @@ export async function sendNeynarFrameNotification({
       title,
       body,
       target_url: APP_URL,
-      uuid: uuidv4(), // Tạo UUID duy nhất cho thông báo
+      uuid: uuidv4(),
     };
-    const response = await client.publishFrameNotifications({ targetFids: [fid], notification });
-    if (response.notification_deliveries && response.notification_deliveries.length > 0) {
-      const delivery = response.notification_deliveries[0];
-      if (delivery.status === 'success') {
-        return { result: 'success' };
-      } else {
-        console.log('Delivery status:', delivery.status);
-        return { result: 'error' };
-      }
-    } else {
-      return { result: 'error' };
-    }
+    const response = await client.publishFrameNotifications({
+      targetFids: [fid],
+      notification,
+    });
+    const delivery = response.notification_deliveries?.[0];
+    if (delivery?.status === 'success') return { result: 'success' };
+    console.log('Delivery status:', delivery?.status);
+    return { result: 'error' };
   } catch (error) {
-    console.error('Lỗi khi gửi thông báo qua Neynar:', error);
+    console.error('Lỗi khi gửi thông báo:', error);
     return { result: 'error', error: error as Error };
   }
 }
