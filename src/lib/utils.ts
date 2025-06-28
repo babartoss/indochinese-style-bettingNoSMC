@@ -29,6 +29,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function truncate(str: string, maxLength: number): string {
+  if (str.length <= maxLength) return str;
+  return str.slice(0, maxLength - 3) + '...';
+}
+
 function getSecretEnvVars() {
   return {
     seedPhrase: process.env.SEED_PHRASE,
@@ -37,7 +42,7 @@ function getSecretEnvVars() {
 }
 
 export async function getFarcasterMetadata(): Promise<MiniAppManifest> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? '';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? '[invalid url, do not cite]';
 
   if (!APP_URL) {
     throw new Error('APP_URL not configured');
@@ -61,7 +66,7 @@ export async function getFarcasterMetadata(): Promise<MiniAppManifest> {
         hostname = new URL(baseUrl).hostname;
       } catch (error) {
         console.error('Invalid baseUrl:', error);
-        hostname = 'localhost';
+        hostname = 'indochinese-style-betting-no-smc.vercel.app';
       }
       const payload = Base64.encodeURI(JSON.stringify({ domain: hostname }));
       const signature = await account.signMessage({ message: `${header}.${payload}` });

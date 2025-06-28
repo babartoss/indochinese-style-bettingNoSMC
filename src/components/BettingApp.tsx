@@ -8,6 +8,7 @@ import { parseUnits } from 'viem';
 import Link from 'next/link';
 import { MANAGER_FID } from '../lib/constants';
 import { truncateAddress } from '../lib/truncateAddress';
+import { truncate } from '../lib/utils'; // Thêm import này
 
 const usdcAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'; // USDC on Base
 const recipientAddress = '0xb37bF0176558B9e76507b79d38D4696DD1805bee'; // Recipient address
@@ -118,8 +119,8 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
         const context = await sdk.context;
         const fid = context.user.fid;
         const truncatedAddress = truncateAddress(address || '');
-        const playerBody = `${betType === 'single' ? 'Single Ticket' : 'Full Set'} Bet: Number ${selectedNumber} with ${betAmountNum} USDC per position, total cost ${totalCost} USDC (fee: 0.10 USDC), Wallet: ${truncatedAddress}`;
-        const managerBody = `User FID ${fid}, Wallet ${truncatedAddress}, placed a ${betType} bet: Number ${selectedNumber}, Amount per position ${betAmountNum} USDC, Total ${totalCost} USDC`;
+        const playerBody = truncate(`${betType === 'single' ? 'Single Ticket' : 'Full Set'} Bet: Number ${selectedNumber} with ${betAmountNum} USDC per position, total cost ${totalCost} USDC (fee: 0.10 USDC), Wallet: ${truncatedAddress}`, 128);
+        const managerBody = truncate(`User FID ${fid}, Wallet ${truncatedAddress}, placed a ${betType} bet: Number ${selectedNumber}, Amount per position ${betAmountNum} USDC, Total ${totalCost} USDC`, 128);
 
         // Gửi thông báo cho người chơi
         const playerResponse = await fetch('/api/send-notification', {
@@ -192,8 +193,8 @@ const BettingApp: React.FC<{ title?: string }> = ({ title }) => {
         const context = await sdk.context;
         const fid = context.user.fid;
         const truncatedAddress = truncateAddress(address || '');
-        const playerBody = `Donation of ${donationOnlyAmount} USDC, Wallet: ${truncatedAddress}`;
-        const managerBody = `User FID ${fid}, Wallet ${truncatedAddress}, donated ${donationOnlyAmount} USDC`;
+        const playerBody = truncate(`Donation of ${donationOnlyAmount} USDC, Wallet: ${truncatedAddress}`, 128);
+        const managerBody = truncate(`User FID ${fid}, Wallet ${truncatedAddress}, donated ${donationOnlyAmount} USDC`, 128);
 
         // Gửi thông báo cho người chơi
         const playerResponse = await fetch('/api/send-notification', {

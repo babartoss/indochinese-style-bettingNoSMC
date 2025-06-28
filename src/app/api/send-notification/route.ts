@@ -5,8 +5,8 @@ import { sendNeynarFrameNotification } from '~/lib/neynar';
 
 const requestSchema = z.object({
   fid: z.number(),
-  title: z.string(),
-  body: z.string(),
+  title: z.string().max(32),
+  body: z.string().max(128),
 });
 
 export async function POST(request: NextRequest) {
@@ -33,7 +33,12 @@ export async function POST(request: NextRequest) {
     });
 
     if (sendResult.result === 'error') {
-      const errorMessage = sendResult.error ? String(sendResult.error) : 'Failed to send notification';
+      let errorMessage = 'Failed to send notification';
+      if (sendResult.error instanceof Error) {
+        errorMessage = sendResult.error.message;
+      } else if (sendResult.error) {
+        errorMessage = JSON.stringify(sendResult.error);
+      }
       return NextResponse.json(
         { success: false, error: errorMessage },
         { status: 500 }
